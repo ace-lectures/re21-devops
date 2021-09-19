@@ -451,7 +451,94 @@ Tests run: 4, Failures: 0, Errors: 0, Skipped: 0
 
 We now consider a database used to store the price of each drinks. For testing purpose, we do not need to use a _real_ database, we only need a _dummy_ onnnnne answering what we told it it to answer. This is the precise rationale of _mock_ objects.
 
-First, we create 
+First, we create the interface of this price database, as a `Catalogue` interface in `src/main/java`:
+
+```java
+public interface Catalogue {
+    Double getPrice(String drinkName);
+}
+```
+
+then, we create the following scenario to check the price of a given order:
+
+```gherkin
+Scenario: Paying the price
+  Given Celine who wants to create an Order
+    And the price of a "PepsaCoke Zero" being 2.75$
+    And the price of a "DietCola Max" being 2.55$
+    And taxes in Quebec being 15%
+  When René is declared as recipient
+    And a "PepsaCoke Zero" is added to the order
+    And a "DietCola Max" is added to the order
+  Then the price with taxes is 5.30$
+    And the price including taxes is 6.10$
+```
+
+We add three missing methods in the `Order` class: remembering the tax rate, and computinng prices.
+
+```java
+public void setTaxes(double rate) { this.taxes = rate; }
+
+public double computePrice(Catalogue catalogue){
+    return this.getDrinks().stream()
+               .map(d -> catalogue.getPrice(d.getName()))
+               .reduce(0.0, Double::sum);
+}
+
+public double computePriceWithTaxes(Catalogue catalogue){
+    return new BigDecimal(this.computePrice(catalogue) * taxes)
+            .setScale(2, RoundingMode.HALF_EVEN)
+            .doubleValue();
+}
+```
+
+Now we load _Mockito_, a reference mock framework for Java, by declaring a new dependency in the `pom.xml` file
+
+```xml
+<dependency>
+    <groupId>org.mockito</groupId>
+    <artifactId>mockito-core</artifactId>
+    <version>3.12.4</version>
+    <scope>test</scope>
+</dependency>
+```
+And we improve the step definitions to support our new steps related to price and taxes:
+
+```java
+private Catalogue catalogue = mock(Catalogue.class);
+
+@Given("the price of a {string} being {double} dollars")
+public void the_price_of_a_being_$(String drink, Double price) {
+    when(catalogue.getPrice(drink)).thenReturn(price);
+}
+
+@Given("taxes in {word} being {double}%")
+public void taxes_being(String place, double rate) {
+   o.setTaxes(1 + rate/100);
+}
+
+@Then("the price with taxes is {double} dollars")
+public void the_price_with_taxes_is_$(Double expected) {
+    assertEquals(expected, o.computePrice(catalogue), 0.01);
+}
+
+@Then("the price including taxes is {double} dollars")
+public void the_price_including_taxes_is_$(Double expected) {
+    assertEquals(expected, o.computePriceWithTaxes(catalogue), 0.01);
+}
+```
+
+### Step III.7: Refactoring the scenarios
+
+The scenarios are considering couples like Céline and René, Tom and Jerry, ... But actually who is ordering for who does not matter for these scenarios. Thus, we cann _factorize_ these steps into a common _Background_:
+
+```gherkin
+Background:
+    Given Seb who wants to create an Order
+    When Jean-Michel is declared as recipient
+```
+
+And then remove the unnecessary context initalization in all the other steps. 
 
 ## Act III: Containerization
 
