@@ -1,0 +1,48 @@
+name: CI/CD Pipeline
+on: [ push ]
+
+jobs:
+  compile-jar:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Received ${{ github.event_name }} event."
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Set up JDK 16
+        uses: actions/setup-java@v2
+        with:
+          java-version: '16'
+          distribution: 'adopt'
+      - name: Build with Maven
+        run: mvn --batch-mode package
+      - name: Store JAR file
+        uses: actions/upload-artifact@v2
+        with:
+          name: app
+          path: target/re-21-SHADED.jar
+  test-ordering:
+    needs: compile-jar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Set up JDK 16
+        uses: actions/setup-java@v2
+        with:
+          java-version: '16'
+          distribution: 'adopt'
+      - name: Build with Maven
+        run: mvn --batch-mode test -D cucumber.filter.tags="@ordering"
+  test-payment:
+    needs: compile-jar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Set up JDK 16
+        uses: actions/setup-java@v2
+        with:
+          java-version: '16'
+          distribution: 'adopt'
+      - name: Build with Maven
+        run: mvn --batch-mode test -D cucumber.filter.tags="@payment"

@@ -463,15 +463,13 @@ then, we create the following scenario to check the price of a given order:
 
 ```gherkin
 Scenario: Paying the price
-  Given Celine who wants to create an Order
-    And the price of a "PepsaCoke Zero" being 2.75$
-    And the price of a "DietCola Max" being 2.55$
+  Given the price of a "PepsaCoke Zero" being 2.75 dollars
+    And the price of a "DietCola Max" being 2.55 dollars
     And taxes in Quebec being 15%
-  When René is declared as recipient
-    And a "PepsaCoke Zero" is added to the order
+  When a "PepsaCoke Zero" is added to the order
     And a "DietCola Max" is added to the order
-  Then the price with taxes is 5.30$
-    And the price including taxes is 6.10$
+  Then the price with taxes is 5.30 dollars
+    And the price including taxes is 6.10 dollars
 ```
 
 We add three missing methods in the `Order` class: remembering the tax rate, and computinng prices.
@@ -542,18 +540,387 @@ And then remove the unnecessary context initalization in all the other steps.
 
 ## Act III: Containerization
 
-### Step III.1: Wrap the system into a web service
+### Step III.1: Load Jooby
 
-### Step III.2: Run the service locally
+Jooby is a super-light REST environment for Java. To load it into our project, we add the following dependencies into the `pom.xml` file:
 
-### Step III.3: Wrap the webservice into a container
+```xml
+<dependency>
+  <groupId>io.jooby</groupId>
+  <artifactId>jooby-netty</artifactId>
+  <version>2.10.0</version>
+</dependency>
+<dependency>
+  <groupId>ch.qos.logback</groupId>
+  <artifactId>logback-classic</artifactId>
+  <version>1.2.6</version>
+</dependency>
+```
 
+If you want to have less verbose logs, connsider copy-pasting the [`logback.xml`](src/main/java/resources/logback.xml) file into the `src/main/java/resources` directory.
+
+### Step III.2: Make the system "showable"
+
+We need to improve a little bit our `Order` class to make it more presentable. We basically add two instance variable for `owner` and `recipient`, as well as `toString` methodes for drinks and orders.
+
+```java
+private String owner;
+public void setOwner(String who) { this.owner = who; }
+
+private String recipient;
+public void setRecipient(String who) { this.recipient = who; }
+
+@Override
+public String toString() {
+    return "Order: " + owner + " / " + recipient + " / { " + contents + "}";
+}
+
+static class Drink {
+    // ...
+    @Override public String toString() { return name; }
+}
+```
+
+### III.3: Wrap the system into a  service
+
+We create a pretty simple and naive REST service, that will declare three routes:
+
+  - `GET /`: say hello (e.g., homepage of the tool)
+  - `GET /orders`: list onngoing orders
+  - `GET /orders/{owner}/{recipient}/{drink}`: add an order to the list
+
+**Warning: the last route must not be a `GET` in an ideal world, but a `POST`. However, for the sake of demonstration simplicity, we decided to use a `GET` and only rely on plain browser features.**
+
+We create a class named `Service`, with the following contents to declare the three routes and map the routes to method executions.
+
+```
+import io.jooby.Jooby;
+import java.util.LinkedList;
+import java.util.List;
+
+public class Service extends Jooby {
+
+    public static void main(String[] args) {
+        runApp(args, Service::new);
+    }
+
+    private final List<Order> orders = new LinkedList<>();
+
+    {
+        get("/", ctx -> "Welcome to our drink ordering system");
+        get("/orders", ctx -> { return getAllOrders();});
+        get("/orders/{owner}/{recipient}/{drink}", (ctx) -> {
+            Order o = addOrder(ctx.path("owner").value(),
+                               ctx.path("recipient").value(),
+                               ctx.path("drink").value());
+            return "added " + o;
+        });
+    }
+
+    public String getAllOrders() { return ""; }
+
+    public Order addOrder(String owner, String recipient, String drinkName) {
+        return null;
+    }    
+}
+```
+
+We can now focus onn _wrapping_ our business logic into the service methods:
+
+```java
+public String getAllOrders() {
+    if(orders.isEmpty())
+        return "Nothing to show";
+    return orders.stream()
+                 .map(o -> o.toString())
+                 .reduce("",(s1,s2) -> s1 +"\n" + s2);
+}
+
+public Order addOrder(String owner, String recipient, String drinkName) {
+    Order o = new Order();
+    o.setOwner(owner);
+    o.setRecipient(recipient);
+    o.getDrinks().add(new Order.Drink(drinkName));
+    orders.add(o);
+    return o;
+}
+```
+
+### Step III.4: Run the service locally
+
+To run the service, we have to first compile it. We already know that our tests are OK, there is nno need to spend time on these tests, so to reduce the compilation time we use the `-DskipTests` flag.
+
+```
+mosser@loki re21-devops % mvn clean package -DskipTests
+```
+
+To execute the system as a service, we simply ask maven to execute the `Service` class
+
+```
+mosser@loki re21-devops % mvn -q exec:java -Dexec.mainClass=Service
+[2021-09-19 17:58:24,767]-[Service.main()] INFO  Service - Service started with:
+[2021-09-19 17:58:24,769]-[Service.main()] INFO  Service -     PID: 33383
+[2021-09-19 17:58:24,769]-[Service.main()] INFO  Service -     netty {port: 8080, ioThreads: 16, workerThreads: 64, bufferSize: 16384, maxRequestSize: 10485760}
+[2021-09-19 17:58:24,770]-[Service.main()] INFO  Service -     env: [dev]
+[2021-09-19 17:58:24,770]-[Service.main()] INFO  Service -     execution mode: default
+[2021-09-19 17:58:24,770]-[Service.main()] INFO  Service -     user: mosser
+[2021-09-19 17:58:24,770]-[Service.main()] INFO  Service -     app dir: /Users/mosser/work/re21-devops
+[2021-09-19 17:58:24,770]-[Service.main()] INFO  Service -     tmp dir: /Users/mosser/work/re21-devops/tmp
+[2021-09-19 17:58:24,770]-[Service.main()] INFO  Service - routes: 
+
+  GET /
+  GET /orders
+  GET /orders/{owner}/{recipient}/{drink}
+
+listening on:
+  http://localhost:8080/
+```
+
+We can now visit the different routes using our favorite browser to add orders and then list them
+
+
+### Step III.5: Create an executable service
+
+We simply ask Maven to squash all the dependencies into a single jar, and consider the `Service` class as the main one. To do this, we add the following declaration in the `pom.xml`
+
+```xml
+<build>
+  <plugins>
+    <plugin>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-shade-plugin</artifactId>
+      <version>3.2.4</version>
+      <executions>
+        <execution>
+          <phase>package</phase>
+          <goals>
+            <goal>shade</goal>
+          </goals>
+          <configuration>
+            <finalName>${artifactId}-SHADED</finalName>
+            <transformers>
+              <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                <mainClass>Service</mainClass>
+              </transformer>
+            </transformers>
+          </configuration>
+        </execution>
+      </executions>
+    </plugin> 
+  </plugins>
+</build>
+```
+To create the `jar` containing all the depdencies into a standalone application, we simply `package` our code:
+
+```
+mosser@loki re21-devops % mvn clean package
+```
+
+It creates a file named `re-21-SHADED.jar` in the `target` directory
+
+
+
+### Step III.6: Wrap the webservice into a container
+
+We need to create a image that will contains the right JRE version, as well as our application. The image also needs to start our application when instantiated into a container.
+
+We define this image by creating a file named `Dockerfile`:
+
+```dockerfile
+# syntax=docker/dockerfile:1
+FROM openjdk:16-alpine
+WORKDIR /app
+COPY target/re-21-SHADED.jar .
+CMD ["java", "-jar", "re-21-SHADED.jar"]
+```
+
+To start a container that will deploy locally our app, we simply have to bind the ports used by our app to ports available on the host. The app use `8080` inside docker, and for the sake of demonstration we will deeploy the app locally using `9090`:
+
+```
+mosser@loki re21-devops % docker build -t acedesign/re21 .
+```
+
+To start a container running the image:
+
+```
+mosser@loki re21-devops % docker run --rm -d -p 9090:8080 --name re21-app acedesign/re21
+```
+
+You can now access the app going to [http://localhost:9090](http://localhost:9090). To stop the container:
+
+```
+mosser@loki re21-devops % docker stop re21-app
+```
 
 ## Act IV: Continuous Integration & Deployment
 
-### Step IV.1: Create a git repository
+### Steep IV.1: Prelimiaries
 
-### Step IV.2: 
+You'll need three accounts to support this act:
+
+  - Githhub: to host the development of the app using Git
+  - Docker Hub: to store and publish the docker image containing our app
+  - Heroku: to deploy the image on a running server
+
+you should also consider copying the [.gitignore](.gitgnore) file in your directory to avoid versionning irrelevant files.
+
+### Step IV.2: Create a git repository
+
+Visit the github home page and create an empty public repository.  to transform your local directory intyo a git repository, use the following instructions. 
+
+```bash
+git init
+git add -A
+git commit -m "first commit"
+git branch -M main
+git remote add origin git@github.com:XXX/YYY.git
+git push -u origin main
+```
+
+The `XXX` is your github login, and `YYY` your repository name. For example, if using the `mosser` user to create a `tmp` repository, the instructionn should be: `git remote add origin git@github.com:mosser/tmp.git`
+
+### Step IV.2: Configure an initial build pipeline
+
+We are going to create a basic pipeline. First it lists the source code in the repositrory, and then it runs the acceptance scenarios. 
+
+To demonstrate how parallel jobs can be run, we will categorize our scenarios into two features: `ordering` and `payment`. to do sao, we simply annotate each scenario with the relevant tag.
+
+```gherkin
+@ordering
+  Scenario: Creating an empty order
+    Then the order does not contain any drinks
+```
+
+Our initial pipeline contains three steps:
+
+  1. We start by compiling the code
+  2. If the code compile, we then run in parallel
+    - the scenarios associated to the `ordering` feature
+    - the scenario associated to the `ordering` feature
+
+To describe the first step (compiling the code), we create a file name `pipeline.yml` in a `.github/workflows` directory. The file describe a job that checkout the code, setup java 16, build the system using maven, and finally store the JAR file in a local storage for the deployments steps.
+
+```yml
+name: CI/CD Pipeline
+on: [push]
+
+jobs:
+  compile-jar:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Received ${{ github.event_name }} event."
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Set up JDK 16
+        uses: actions/setup-java@v2
+        with:
+          java-version: '16'
+          distribution: 'adopt'
+      - name: Build with Maven
+        run: mvn --batch-mode package
+      - name: Store JAR file
+        uses: actions/upload-artifact@v2
+        with:
+          name: app
+          path: target/re-21-SHADED.jar
+```
+To trigger this pipeline, we just have to push it to github:
+
+```
+mosser@loki tmp % git add -A; git commit -m "compilation wkflow"; git push 
+```
+
+No, we can define the two jobs to evaluate scenarios in parallel
+
+```yaml
+  test-ordering:
+    needs: compile-jar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Set up JDK 16
+        uses: actions/setup-java@v2
+        with:
+          java-version: '16'
+          distribution: 'adopt'
+      - name: Build with Maven
+        run: mvn --batch-mode test -D cucumber.filter.tags="@ordering"
+  test-payment:
+    needs: compile-jar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Set up JDK 16
+        uses: actions/setup-java@v2
+        with:
+          java-version: '16'
+          distribution: 'adopt'
+      - name: Build with Maven
+        run: mvn --batch-mode test -D cucumber.filter.tags="@payment"
+```
+
+```
+mosser@loki tmp % git add -A; git commit -m "acceptance steps"; git push 
+```
+
+### Step IV.3: Publish the image on the docker hub
+
+To publish your image on the DockerHub, you need a `username` and a `password`. To deploy your image from your local computer, you need to first login into the docker hub, and then push the image
+
+```
+mosser@loki tmp % docker login  
+Username: YOUR_USERNAME
+Password: YOUR_PASSWORD
+Login Succeeded
+mosser@loki tmp % docker push YOUR_USERNAME/re21
+Using default tag: latest
+...
+```
+
+Now, anyone can download the image on their computer by using the following command:
+
+```
+mosser@loki tmp % docker pull acedesign/re21  
+```
+
+To automate the publication of the image, we simply add a step after the pwo defined previously
+
+```yml
+  publish-image:
+    needs: [test-payment, test-ordering]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Restore the jar with dependecies
+        uses: actions/download-artifact@v2
+        with:
+          name: app
+          path: target/re-21-SHADED.jar
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/re21
+```
+
+As you do not want your username and password written in plain text in a publicly versionned file, we are using  _secrets_. We store these information as repository secrets (encrypted), and github action will uncrypt the information at runtime in a secure way.
+
+Go to the Github interface, and click on `Settings` for your repository. Then `Secrets`, and then `Add a new repository secret`.
+
+
 
 ## Conclusions
 
