@@ -969,9 +969,21 @@ We can now add a last job to our pipeline
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ${{ secrets.HEROKU_AP_NAME }}
 ```
+
+To trigger the workflow:
+
 ```
 mosser@loki tmp % git add -A; git commit -m "heroku deploy"; git push 
 ```
+
+### Step IV.6: Witnessing our failure
+
+We can now access to our application on Heroku. Go to the heroku dashboard, click on your app and select `Open app`.
+
+Nothing is happenning ...
+
+Go back to the previous page, and select `See logs`
+
 
 
 ## Act V: Seeing the pipeline in action
