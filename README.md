@@ -978,18 +978,48 @@ mosser@loki tmp % git add -A; git commit -m "heroku deploy"; git push
 
 ### Step IV.6: Witnessing our failure
 
-We can now access to our application on Heroku. Go to the heroku dashboard, click on your app and select `Open app`.
+We can now access to our application on Heroku. Go to the [heroku dashboard](https://dashboard.heroku.com/apps), click on your app and select `Open app`.
 
 Nothing is happenning ...
 
-Go back to the previous page, and select `See logs`
+Go back to the previous page, and select `More/View logs`
 
+We are forcing to use port `8080`, where heroku actually expects to choose a port for us. the app cannot be deployed this way. 
 
+![updated workflow](images/step_4_6_logs.png)
+
+The pipeline cannot know this information, as, from its point of view, the deployment was OK, i.e., Heroku has accepted the image. Hopefully, we know have a CI/CD pipeline that will support us to fix this mistake.
 
 ## Act V: Seeing the pipeline in action
 
+Heroku will select a port for us, and tell us which one using the `PORT` environment variable.
 
+We fist need to fix our Dockerfile to consider the port as a variation point. By default, we'll use `8080`, but one should be able to override this setting.
 
+```dockerfile
+FROM openjdk:16-alpine
+ENV PORT=8080
+WORKDIR /app
+COPY target/re-21-SHADED.jar .
+CMD ["java", "-jar", "re-21-SHADED.jar"]
+```
+
+Then, we have to fix the `Service` class to rely on the environment variable. We add the following instruction in the static initialization block
+
+```java
+setServerOptions(new ServerOptions()
+                .setPort(Integer.parseInt(System.getenv("PORT"))));
+```
+
+We can now add, commit and push to trigger the pipeline.
+
+```
+mosser@loki tmp % git add -A; git commit -m "variable port"; git push 
+```
+
+the pipeline eventually deploys the app, which will be avaialbe at the following URL:
+
+  - http://HEROKU_APP_NAME.heroku.com
 
 ## Conclusions
 
