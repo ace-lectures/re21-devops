@@ -46,3 +46,30 @@ jobs:
           distribution: 'adopt'
       - name: Build with Maven
         run: mvn --batch-mode test -D cucumber.filter.tags="@payment"
+
+  publish-image:
+    needs: [test-payment, test-ordering]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Restore the jar with dependecies
+        uses: actions/download-artifact@v2
+        with:
+          name: app
+          path: target/re-21-SHADED.jar
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/re21

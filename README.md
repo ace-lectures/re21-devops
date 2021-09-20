@@ -865,6 +865,10 @@ No, we can define the two jobs to evaluate scenarios in parallel
 mosser@loki tmp % git add -A; git commit -m "acceptance steps"; git push 
 ```
 
+We can go to the github actions page to see the workflow in action
+
+![initial workflow](images/step_4_3_workflow.png)
+
 ### Step IV.3: Publish the image on the docker hub
 
 To publish your image on the DockerHub, you need a `username` and a `password`. To deploy your image from your local computer, you need to first login into the docker hub, and then push the image
