@@ -889,7 +889,16 @@ Now, anyone can download the image on their computer by using the following comm
 mosser@loki tmp % docker pull acedesign/re21  
 ```
 
-To automate the publication of the image, we simply add a step after the pwo defined previously
+As you do not want your username and password written in plain text in a publicly versionned file, we are using  _secrets_. We store these information as repository secrets (encrypted), and github action will uncrypt the information at runtime in a secure way.
+
+![secret interface](images/step_4_4_secret.png)
+
+Go to the Github interface, and click on `Settings` for your repository. Then `Secrets`, and then `Add a new repository secret`. Create two secrets:
+
+  - `DOCKER_USERNAME`
+  - `DOCKER_PASSWORD`
+
+To automate the publication of the image, we simply add a step after the two defined previously. The job retrieves our JAR file obtained after step 1, load the virtualization context necessary to work with containers (QEMU and buildx), login to the docker hub, build the image and push it.
 
 ```yml
   publish-image:
@@ -920,9 +929,53 @@ To automate the publication of the image, we simply add a step after the pwo def
           tags: ${{ secrets.DOCKER_USERNAME }}/re21
 ```
 
-As you do not want your username and password written in plain text in a publicly versionned file, we are using  _secrets_. We store these information as repository secrets (encrypted), and github action will uncrypt the information at runtime in a secure way.
+To trigger the pipeline:
 
-Go to the Github interface, and click on `Settings` for your repository. Then `Secrets`, and then `Add a new repository secret`.
+```
+mosser@loki tmp % git add -A; git commit -m "docker build"; git push 
+```
+![updated workflow](images/step_4_4_workflow.png)
+
+### Step IV.4: Publish the image as an Heroku app
+
+First, login to your account and create a new application.
+
+Like docker, Heroku requires some secrets for the CI/Cd pipeline:
+
+  - `HEROKU_EMAIL`: the email associated to your account
+  - `HEROKU_APP_NAME`: the application name you chose
+  - `HEROKU_API_KEY`: the key available in your account settings
+
+![updated workflow](images/step_4_5_secrets.png)
+
+We can now add a last job to our pipeline
+
+```yml
+  deploy-app:
+    needs: publish-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Restore the jar with dependecies
+        uses: actions/download-artifact@v2
+        with:
+          name: app
+          path: target/re-21-SHADED.jar
+      - name: Build, Push and Release a Docker container to Heroku.
+        uses: gonuit/heroku-docker-deploy@v1.3.3
+        with:
+          email: ${{ secrets.HEROKU_EMAIL }}
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: ${{ secrets.HEROKU_AP_NAME }}
+```
+```
+mosser@loki tmp % git add -A; git commit -m "heroku deploy"; git push 
+```
+
+
+## Act V: Seeing the pipeline in action
+
 
 
 
