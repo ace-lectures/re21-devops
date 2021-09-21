@@ -6,13 +6,16 @@ import java.util.List;
 
 public class Service extends Jooby {
 
-    {
-        setServerOptions(new ServerOptions()
-                .setPort(Integer.parseInt(System.getenv("PORT"))));
+    public static void main(String[] args) { runApp(args, Service::new); }
 
-        get("/", ctx -> "Welcome to our drink ordering system");
-        get("/orders", ctx -> { return getAllOrders();});
-        get("/orders/{owner}/{recipient}/{drink}", (ctx) -> {
+    {
+        // Added to control the deployment port (Heroku deployment, Act V)
+        setServerOptions(new ServerOptions()
+                .setPort(Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"))));
+
+        get("/", ctx -> "Welcome to our drink ordering system TMPTMPTMP");
+        get("/orders", ctx -> getAllOrders());
+        get("/orders/{owner}/{recipient}/{drink}", ctx -> {
             Order o = addOrder(ctx.path("owner").value(),
                                ctx.path("recipient").value(),
                                ctx.path("drink").value());
@@ -26,7 +29,7 @@ public class Service extends Jooby {
         if(orders.isEmpty())
             return "Nothing to show";
         return orders.stream()
-                .map(o -> o.toString())
+                .map(Order::toString)
                 .reduce("",(s1,s2) -> s1 +"\n" + s2);
     }
 
@@ -39,7 +42,5 @@ public class Service extends Jooby {
         return o;
     }
 
-    public static void main(String[] args) {
-        runApp(args, Service::new);
-    }
+
 }

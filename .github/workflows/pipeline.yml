@@ -2,10 +2,10 @@ name: CI/CD Pipeline
 on: [ push ]
 
 jobs:
+
   compile-jar:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Received ${{ github.event_name }} event."
       - name: Check out repository code
         uses: actions/checkout@v2
       - name: Set up JDK 16
@@ -20,6 +20,7 @@ jobs:
         with:
           name: app
           path: target/re-21-SHADED.jar
+
   test-ordering:
     needs: compile-jar
     runs-on: ubuntu-latest
@@ -32,7 +33,8 @@ jobs:
           java-version: '16'
           distribution: 'adopt'
       - name: Build with Maven
-        run: mvn --batch-mode test -D cucumber.filter.tags="@ordering"
+        run: mvn --batch-mode test -Dcucumber.filter.tags="@ordering"
+
   test-payment:
     needs: compile-jar
     runs-on: ubuntu-latest
@@ -45,7 +47,7 @@ jobs:
           java-version: '16'
           distribution: 'adopt'
       - name: Build with Maven
-        run: mvn --batch-mode test -D cucumber.filter.tags="@payment"
+        run: mvn --batch-mode test -Dcucumber.filter.tags="@payment"
 
   publish-image:
     needs: [test-payment, test-ordering]
@@ -78,16 +80,20 @@ jobs:
     needs: publish-image
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository code
-        uses: actions/checkout@v2
-      - name: Restore the jar with dependecies
-        uses: actions/download-artifact@v2
-        with:
-          name: app
-          path: target/re-21-SHADED.jar
-      - name: Build, Push and Release a Docker container to Heroku.
-        uses: gonuit/heroku-docker-deploy@v1.3.3
-        with:
-          email: ${{ secrets.HEROKU_EMAIL }}
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
+      - name: Pull the released image
+        run: docker pull ${{ secrets.DOCKER_USERNAME }}/re21
+      - name: connect to the Heroku registry
+        run: |
+          docker login --username=_ \
+                       --password=${{ secrets.HEROKU_API_KEY }} \
+                       registry.heroku.com
+      - name: prepare the released image for deployment
+        run: |
+          docker tag ${{ secrets.DOCKER_USERNAME }}/re21 \
+                 registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web
+      - name: push the image to heroku
+        run: docker push registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web
+      - name: release the image into a new container
+        run: heroku container:release web -a ${{ secrets.HEROKU_APP_NAME }}
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
