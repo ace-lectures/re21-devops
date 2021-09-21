@@ -1,5 +1,7 @@
 # Requirements Engineering in the DevOps Era
 
+[![CI/CD Pipeline](https://github.com/ace-lectures/re21-devops/actions/workflows/pipeline.yml/badge.svg)](https://github.com/ace-lectures/re21-devops/actions/workflows/pipeline.yml)
+
   - Authors: Sébastien Mosser (UQAM) & Jean-Michel Bruel (Université de Toulouse)
   - Version: 2021.09 (RE 2021)
 
