@@ -160,7 +160,7 @@ public class Order {
     public void setOwner(String who) { /* ...*/ }
     public void setRecipient(String who) { /* ...*/ }
     public List<Order.Drink> getDrinks() { return new LinkedList<>(); }
-
+Run
     static class Drink { 
         public Drink(String name){ }  
     }
@@ -586,7 +586,7 @@ static class Drink {
 We create a pretty simple and naive REST service, that will declare three routes:
 
   - `GET /`: say hello (e.g., homepage of the tool)
-  - `GET /orders`: list onngoing orders
+  - `GET /orders`: list ongoing orders
   - `GET /orders/{owner}/{recipient}/{drink}`: add an order to the list
 
 **Warning: the last route must not be a `GET` in an ideal world, but a `POST`. However, for the sake of demonstration simplicity, we decided to use a `GET` and only rely on plain browser features.**
@@ -795,6 +795,7 @@ Our initial pipeline contains three steps:
 
   1. We start by compiling the code
   2. If the code compile, we then run in parallel
+
     - the scenarios associated to the `ordering` feature
     - the scenario associated to the `ordering` feature
 
