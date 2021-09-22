@@ -195,40 +195,67 @@ You can visit your DockerHub home page to see that the image was properly deploy
 
 ### Step IV.4: Deploy the app to the Heroku platform
 
-First, login to your Heroku account and create a new application.
+First, [login](https://id.heroku.com/login) to your Heroku account and create a new application. 
 
-Like docker, Heroku requires some secrets to transform our releasing pipeline into a deployment one:
+You also need to go to your account settings (top right of your [dashboard](https://dashboard.heroku.com/account)) and _reveal_ your API key.
 
-- `HEROKU_EMAIL`: the email associated to your account
-- `HEROKU_APP_NAME`: the application name you chose
-- `HEROKU_API_KEY`: the key available in your account settings
+### Manually deploying
 
-![updated workflow](images/step_4_5_secrets.png)
+Deploying a Docker image to a web environment on Heroku requires some dark magic. the point here is to understand the global steps, not necessarily the complete details.
 
-We can now add a last job to our pipeline:
+  1. First we need to `pull` the image from the Docker Hub;
+  2. Then we need to `tag` the image according to Heroku naming conventions for web applications;
+  3. Then we `login` into Heroku's image registry (`registry.heroku.com`);
+  4. And `push` the image using the right naming convention to Heroku's registry;
+  5. We export our personal API auth token in an environment variable;
+  6. We ask Heroku to `release` a new `web` `container` for our app.
 
-  1. Checking out the code;
-  2. Restoring the _shaded_ app;
-  3. Release the repository as a docker container (build the image, and push it into production).
+Putting everything together, it means to execute the following commands:
+
+```
+docker pull DOCKER_USERNAME/re21
+docker tag DOCKER_USERNAME/re21 registry.heroku.com/HEROKU_APP_NAME/web
+docker login --username=_ \
+             --password=ACCOUNT_HEROKU_API_KEY \
+             registry.heroku.com
+docker push registry.heroku.com/HEROKU_APP_NAME/web
+export HEROKU_API_KEY=ACCOUNT_HEROKU_API_KEY
+heroku container:release web -a HEROKU_APP_NAME
+```
+
+### Automating the deployment with the pipeline
+
+We need to store two new secrets in the environment:
+
+  - `HEROKU_APP_NAME`: the application name you chose
+  - `HEROKU_API_KEY`: the key available in your account settings
+
+![updated workflow](images/step_4_5_secrets.png) 
+
+We can now add a last job to our pipeline to automate the step we have previously identified:
 
 ```yml
   deploy-app:
     needs: publish-image
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository code
-        uses: actions/checkout@v2
-      - name: Restore the jar with dependecies
-        uses: actions/download-artifact@v2
-        with:
-          name: app
-          path: target/re-21-SHADED.jar
-      - name: Release the current repository as Docker container to Heroku.
-        uses: gonuit/heroku-docker-deploy@v1.3.3
-        with:
-          email: ${{ secrets.HEROKU_EMAIL }}
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: ${{ secrets.HEROKU_AP_NAME }}
+      - name: Pull the released image
+        run: docker pull ${{ secrets.DOCKER_USERNAME }}/re21
+      - name: connect to the Heroku registry
+        run: |
+          docker login --username=_ \
+                       --password=${{ secrets.HEROKU_API_KEY }} \
+                       registry.heroku.com
+      - name: prepare the released image for deployment
+        run: |
+          docker tag ${{ secrets.DOCKER_USERNAME }}/re21 \
+                 registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web
+      - name: push the image to heroku
+        run: docker push registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web
+      - name: release the image into a new container
+        run: heroku container:release web -a ${{ secrets.HEROKU_APP_NAME }}
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
 ```
 
 To trigger the workflow:
@@ -237,6 +264,6 @@ To trigger the workflow:
 mosser@loki tmp % git add -A; git commit -m "heroku deploy"; git push 
 ```
 
-
+![final workflow](./images/step_4_5_workflow.png)
 
   - [Go to next act](./Act_5.md)

@@ -9,9 +9,9 @@ public class Service extends Jooby {
     public static void main(String[] args) { runApp(args, Service::new); }
 
     {
-        // Added to control the deployment port (Heroku deployment, Act V)
-        setServerOptions(new ServerOptions()
-                .setPort(Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"))));
+        // Added to control the deployment port (Heroku deployment, Step V.2)
+        int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
+        setServerOptions(new ServerOptions().setPort(port));
 
         get("/", ctx -> "Welcome to our drink ordering system TMPTMPTMP");
         get("/orders", ctx -> getAllOrders());
