@@ -14,7 +14,7 @@ jobs:
           java-version: '16'
           distribution: 'adopt'
       - name: Build with Maven
-        run: mvn --batch-mode package
+        run: mvn --batch-mode package -DskipTests
       - name: Store JAR file
         uses: actions/upload-artifact@v2
         with:
