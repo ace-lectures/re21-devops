@@ -281,7 +281,7 @@ public void add_drink_to_the_order(String drinkName){
     o.getDrinks().add(new Drink(drinkName));
 }
 
-@Then("the order contains {int} drinks")
+@Then("the order contains {int} drink")
 public void check_order_size(int size) {
     assertEquals(size, o.getDrinks().size());
 }
