@@ -128,7 +128,7 @@ public class RunCucumberTest {}
 
 **This class will stay as is. This is just a way to catch Junit, and asks the framework to start the cucumber process (with the `@RunWith(Cucumber.class)` annotation).**
 
-To remove a very annoying (advertisement) message from Cucumber, create a file named `cucumber.properties` in the `src/test/java/resources` (create it if it does nnot already exist) with the following contents:
+To remove a very annoying (advertisement) message from Cucumber, create a file named `cucumber.properties` in the `src/test/resources` (create it if it does not already exist) with the following contents:
 
 ```properties
 cucumber.publish.quiet=true
