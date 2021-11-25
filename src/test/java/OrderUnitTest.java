@@ -1,7 +1,10 @@
 import org.junit.Test;
 import java.util.List;
 import static org.junit.Assert.assertEquals;
+import org.junit.runner.RunWith;
+import org.mockito.junit.MockitoJUnitRunner;
 
+@RunWith(MockitoJUnitRunner.class)
 public class OrderUnitTest {
 
     @Test

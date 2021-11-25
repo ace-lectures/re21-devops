@@ -15,6 +15,15 @@
   - Implement a _Continous Integration_/_Continuous Deployment_ (CI/CD) pipeline
   - Deploy the app in an hosted environment
 
+## Attendee
+
+### LAST NAME : DOE
+### First name : John
+### TP group : 
+- [ ] 11
+- [x] 12
+- [ ] 21
+- [ ] 22
 ## Documents
 
   - IEEE 2021 International Requirements Engineering Conference
